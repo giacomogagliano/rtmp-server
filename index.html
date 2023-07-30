@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Stream HLS</title>
+    <style>
+      #hls-player {
+        width: 100%;
+        height: auto;
+      }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/hls.js/1.2.2-0.canary.8583/hls.min.js"></script>
+  </head>
+  <body>
+    <video id="hls-player" controls autoplay></video>
+    <script>
+      const streamUrl = "http://localhost:8000/test-1/index.m3u8";
+
+      // Funzione per verificare se il file esiste sul server
+      function checkFileExists(url, callback) {
+        var xhr = new XMLHttpRequest();
+        xhr.open("HEAD", url, true);
+        xhr.onreadystatechange = function () {
+          if (xhr.readyState === 4) {
+            callback(xhr.status == 200);
+          }
+        };
+        xhr.send();
+      }
+
+      // Controlla l'esistenza del file index.m3u8
+      checkFileExists(streamUrl, function (exists) {
+        if (exists) {
+          // Il file esiste, possiamo caricare lo streaming nel player HLS
+          const video = document.getElementById("hls-player");
+          const hls = new Hls();
+
+          hls.loadSource(streamUrl);
+          hls.attachMedia(video);
+
+          hls.on(Hls.Events.MANIFEST_PARSED, function () {
+            video.play();
+          });
+
+          // Gestisci gli errori
+          hls.on(Hls.Events.ERROR, function (event, data) {
+            if (data.fatal) {
+              switch (data.type) {
+                case Hls.ErrorTypes.NETWORK_ERROR:
+                  console.error(
+                    "Errore di rete durante il caricamento dello stream."
+                  );
+                  break;
+                case Hls.ErrorTypes.MEDIA_ERROR:
+                  console.error(
+                    "Errore multimediale durante il caricamento dello stream."
+                  );
+                  break;
+                default:
+                  console.error(
+                    "Errore sconosciuto durante il caricamento dello stream."
+                  );
+                  break;
+              }
+              hls.destroy();
+            }
+          });
+
+          // Controlla i nuovi segmenti ogni secondo e caricali dinamicamente
+          setInterval(function () {
+            if (hls.url !== streamUrl) {
+              // Se l'URL corrente è cambiato, carica i nuovi segmenti
+              hls.loadSource(streamUrl);
+              hls.attachMedia(video);
+            }
+          }, 1000);
+        } else {
+          // Il file non esiste, mostra un messaggio di errore o gestisci la situazione a seconda delle esigenze
+          console.error("Il file index.m3u8 non esiste sul server.");
+        }
+      });
+    </script>
+  </body>
+</html>
